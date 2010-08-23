@@ -60,34 +60,28 @@
   function)
 
 
-; TODO: reduce code duplication smell.
+(defn perform-search
+  "Given a searching query vector, return a function to perform the search."
+  [queryvec]
+  (fn [n]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body (encode-to-str
+             (with-connection db
+                              (transaction
+                                (when-let [functions (with-query-results rs queryvec (doall rs))]
+                                  (map format-search functions)))))}))
+
+
 (defn search
+  "Search for a method by name or namespace & name."
   ([name]
-   (fn [n]
-     {:status 200
-      :headers {"Content-Type" "application/json"}
-      :body (encode-to-str
-              (with-connection db
-                               (transaction
-                                 (when-let [functions (with-query-results
-                                                        rs
-                                                        ; There is definitely a better way to do this.
-                                                        [(str "select id,name,ns from functions where name like '%" name "%'")]
-                                                        (doall rs))]
-                                   (map format-search functions)))))}))
+   (search nil name))
   ([ns name]
-   (fn [n]
-     {:status 200
-      :headers {"Content-Type" "application/json"}
-      :body (encode-to-str
-              (with-connection db
-                               (transaction
-                                 (when-let [functions (with-query-results
-                                                        rs
-                                                        ; There is definitely a better way to do this.
-                                                        [(str "select id,name,ns from functions where ns = ? and name like '%" name "%'") ns]
-                                                        (doall rs))]
-                                   (map format-search functions)))))})))
+   (let [qv (if (nil? ns)
+              [(str "select id,name,ns from functions where name like '%" name "%'")]
+              [(str "select id,name,ns from functions where ns = ? and name like '%" name "%'") ns])]
+     (perform-search qv))))
 
 
 (defn app-handler [channel request]
