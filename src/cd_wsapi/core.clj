@@ -84,6 +84,32 @@
      (perform-search qv))))
 
 
+(defn format-comment
+  "Given a comment, format it for json output."
+  [c]
+  (dissoc (into {} c) :subject :parent_id :lft :rgt :id :commentable_id :commentable_type :title))
+
+
+(defn get-comments
+  "Return the comments for a given namespace and method."
+  [ns name]
+  (fn [n]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body (encode-to-str
+             (with-connection db
+                              (transaction
+                                (when-let [id (with-query-results
+                                                rs
+                                                ["select id from functions where ns = ? and name = ?" ns name]
+                                                (:id (first (doall rs))))]
+                                  (when-let [comments (with-query-results
+                                                      rs
+                                                      ["select * from comments where comments.commentable_id = ? " id]
+                                                      (doall rs))]
+                                    (map format-comment comments))))))}))
+
+
 (defn app-handler [channel request]
   (enqueue-and-close 
     channel
@@ -92,11 +118,14 @@
        ["examples" ns name] (examples ns name)
        ["search" ns name] (search ns name)
        ["search" name] (search name)
+       ["comments" ns name] (get-comments ns name)
        [&] default)
        request)))
 
+
 (defn app-wrapper [channel request]
   (app-handler channel request))
+
 
 (comment (def server (start-http-server app-wrapper {:port *server-port*}))
 
