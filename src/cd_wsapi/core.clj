@@ -110,6 +110,45 @@
                                     (map format-comment comments))))))}))
 
 
+(defn format-function
+  "Given a function, format it for json."
+  [function]
+  (dissoc (into {} function) :id :doc :source :shortdoc))
+
+
+(defn format-see-also
+  "Given an id, format the function to see also."
+  [id]
+  (with-connection db
+                   (transaction
+                     (when-let [functions (with-query-results
+                                           rs
+                                           ["select * from functions where id = ?" (:to_id id)]
+                                           (doall rs))]
+                       (map format-function functions)))))
+
+
+(defn see-also
+  "Return the functions to see for a given namespace and method."
+  [ns name]
+  (fn [n]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body (encode-to-str
+             (with-connection db
+                              (transaction
+                                (when-let [id (with-query-results
+                                                rs
+                                                ["select id from functions where ns = ? and name = ?" ns name]
+                                                (:id (first (doall rs))))]
+                                  (when-let [see-also-ids (with-query-results
+                                                            rs
+                                                            ["select to_id from see_alsos where from_id = ?" id]
+                                                            (doall rs))]
+                                    (map format-see-also see-also-ids))))))}))
+
+
+
 (defn app-handler [channel request]
   (enqueue-and-close 
     channel
@@ -119,6 +158,7 @@
        ["search" ns name] (search ns name)
        ["search" name] (search name)
        ["comments" ns name] (get-comments ns name)
+       ["see-also" ns name] (see-also ns name)
        [&] default)
        request)))
 

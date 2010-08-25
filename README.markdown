@@ -25,6 +25,10 @@ Searching for comments on a function
 
     curl "http://localhost:8080/comments/clojure.contrib.json/read-json"
 
+Getting the 'see-also' functions
+--------------------------------
+
+    curl "http://localhost:8080/see-also/clojure.test/are"
 
 License
 -------
