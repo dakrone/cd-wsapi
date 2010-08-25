@@ -29,6 +29,17 @@
    :body "null"})
 
 
+(defn get-id
+  "Retrieve the id of a given namespace and method.
+  Must be called from within a transaction."
+  [ns name]
+  (when-let [id (with-query-results
+                  rs
+                  ["select id from functions where ns = ? and name = ?" ns name]
+                  (:id (first (doall rs))))]
+    id))
+
+
 (defn format-example
   "Given an example, format the example for the API JSON output."
   [example]
@@ -42,10 +53,7 @@
      :body (encode-to-str 
              (with-connection db
                               (transaction
-                                (when-let [id (with-query-results
-                                                rs
-                                                ["select id from functions where ns = ? and name = ?" ns name]
-                                                (:id (first (doall rs))))]
+                                (when-let [id (get-id ns name)]
                                   (when-let [examples (with-query-results
                                                         rs
                                                         ["select * from examples where function_id = ?" id]
@@ -99,10 +107,7 @@
      :body (encode-to-str
              (with-connection db
                               (transaction
-                                (when-let [id (with-query-results
-                                                rs
-                                                ["select id from functions where ns = ? and name = ?" ns name]
-                                                (:id (first (doall rs))))]
+                                (when-let [id (get-id ns name)]
                                   (when-let [comments (with-query-results
                                                       rs
                                                       ["select * from comments where comments.commentable_id = ? " id]
@@ -137,10 +142,7 @@
      :body (encode-to-str
              (with-connection db
                               (transaction
-                                (when-let [id (with-query-results
-                                                rs
-                                                ["select id from functions where ns = ? and name = ?" ns name]
-                                                (:id (first (doall rs))))]
+                                (when-let [id (get-id ns name)]
                                   (when-let [see-also-ids (with-query-results
                                                             rs
                                                             ["select to_id from see_alsos where from_id = ?" id]
