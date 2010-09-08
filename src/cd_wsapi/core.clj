@@ -5,6 +5,7 @@
         [org.danlarkin.json]))
 
 (def *server-port* 8080)
+(def *default-page* (slurp "resources/index.html"))
 
 ;;JSON Encoders
 (add-encoder 
@@ -25,8 +26,8 @@
 
 (defn default [request]
   {:status 200
-   :headers {"Content-Type" "application/json"}
-   :body "null"})
+   :headers {"Content-Type" "text/html"}
+   :body *default-page*})
 
 
 (defn get-id

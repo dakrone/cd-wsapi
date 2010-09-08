@@ -1,0 +1,49 @@
+<html>
+      <head>
+      <title>ClojureDocs Web API</title>
+</head>
+<body>
+<br />
+<br />
+      <div id='main' style='border: 3px double; width: 600px; margin-left: auto; margin-right: auto; padding-left: 15px;'>
+<h1>ClojureDocs.org web API</h1>
+
+All API functions return JSON.
+
+<h2>Usage:</h2>
+
+<h3>Getting examples</h3>
+
+<pre>
+<code>
+     curl "http://api.clojuredocs.org/examples/clojure.core/map"
+</code>
+</pre>
+
+<h3>Searching for a function</h3>
+
+<pre>
+<code>
+     curl "http://api.clojuredocs.org/search/map"
+     curl "http://api.clojuredocs.org/search/clojure.core/map"
+</code>
+</pre>
+
+<h3>Searching for comments on a function</h3>
+
+<pre>
+<code>
+     curl "http://api.clojuredocs.org/comments/clojure.contrib.json/read-json"
+</code>
+</pre>
+
+<h3>Getting the 'see-also' functions</h3>
+
+<pre>
+<code>
+     curl "http://api.clojuredocs.org/see-also/clojure.test/are"
+</code>
+</pre>
+      </div>
+</body>
+</html>
