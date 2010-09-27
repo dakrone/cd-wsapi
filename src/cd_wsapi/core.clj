@@ -24,6 +24,8 @@
          :username "cd_wsapi"
          :password "cd_wsapi"})
 
+(def clojuredocs-base "http://clojuredocs.org")
+
 (defn default [request]
   {:status 200
    :headers {"Content-Type" "text/html"}
@@ -59,14 +61,16 @@
                                                         rs
                                                         ["select * from examples where function_id = ?" id]
                                                         (doall rs))]
-                                    (map format-example examples))))))}))
+                                    {:url (str clojuredocs-base "/v/" id)
+				     :examples (map format-example examples)})))))}))
 
 
 ; Doesn't do anything yet, but it might in the future.
 (defn format-search
   "Given a function result set, format the function for the API JSON output."
   [function]
-  function)
+  (let [id (:id function)]
+    (assoc function :url (str clojuredocs-base "/v/" id))))
 
 
 (defn perform-search
@@ -116,10 +120,11 @@
                                     (map format-comment comments))))))}))
 
 
-(defn format-function
+(defn format-see-also-function
   "Given a function, format it for json."
   [function]
-  (dissoc (into {} function) :id :doc :source :shortdoc))
+  (let [id (:id function)]
+    (assoc (dissoc (into {} function) :id :doc :source :shortdoc) :url (str clojuredocs-base "/v/" id))))
 
 
 (defn format-see-also
@@ -128,10 +133,10 @@
   (with-connection db
                    (transaction
                      (when-let [functions (with-query-results
-                                           rs
-                                           ["select * from functions where id = ?" (:to_id id)]
-                                           (doall rs))]
-                       (map format-function functions)))))
+                                            rs
+                                            ["select * from functions where id = ?" (:to_id id)]
+                                            (doall rs))]
+                       (format-see-also-function (first functions)))))) ; should only be 1 function per id
 
 
 (defn see-also
@@ -156,7 +161,6 @@
   (enqueue-and-close 
     channel
     ((app
-       ["stuff"] examples
        ["examples" ns name] (examples ns name)
        ["search" ns name] (search ns name)
        ["search" name] (search name)
