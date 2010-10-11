@@ -19,7 +19,8 @@
 
 (def db {:classname "com.mysql.jdbc.Driver"
          :subprotocol "mysql"
-         :subname "//localhost:3306/clojuredocs?user=cd_wsapi&password=cd_wsapi"
+         :subname "//localhost:3306/clojuredocs_development?user=cd_wsapi&password=cd_wsapi"
+;         :subname "//localhost:3306/clojuredocs?user=cd_wsapi&password=cd_wsapi"
          :create true
          :username "cd_wsapi"
          :password "cd_wsapi"})
@@ -41,6 +42,30 @@
                   ["select id from functions where ns = ? and name = ?" ns name]
                   (:id (first (doall rs))))]
     id))
+
+
+(defn get-available-versions
+  "Given nothing, return all available versions clojuredocs knows about.
+
+  Given a namespace and name, return a list of versions for the function."
+  ([]
+     (with-connection
+       db
+       (with-query-results rs ["select distinct version from functions"]
+         (remove nil? (map :version (doall rs))))))
+  ([ns name]
+     (with-connection
+       db
+       (with-query-results rs ["select version from functions where ns = ? and name = ?" ns name]
+         (remove nil? (map :version (doall rs)))))))
+
+
+(defn available-versions
+  []
+  (fn [r]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body (encode-to-str (get-available-versions))}))
 
 
 (defn format-example
@@ -166,6 +191,7 @@
        ["search" name] (search name)
        ["comments" ns name] (get-comments ns name)
        ["see-also" ns name] (see-also ns name)
+       ["versions"] (available-versions)
        [&] default)
        request)))
 

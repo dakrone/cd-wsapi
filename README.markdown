@@ -30,6 +30,11 @@ Getting the 'see-also' functions
 
     curl "http://localhost:8080/see-also/clojure.test/are"
 
+Getting the available versions clojuredocs knows about
+------------------------------------------------------
+
+    curl "http://localhost:8080/versions"
+
 License
 -------
 
