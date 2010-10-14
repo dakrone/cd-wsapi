@@ -20,12 +20,15 @@
 (def db {:classname "com.mysql.jdbc.Driver"
          :subprotocol "mysql"
          :subname "//localhost:3306/clojuredocs_development?user=cd_wsapi&password=cd_wsapi"
-;         :subname "//localhost:3306/clojuredocs?user=cd_wsapi&password=cd_wsapi"
+;         :subname "//localhost:3306/clojuredocs_production?user=cd_wsapi&password=cd_wsapi"
          :create true
          :username "cd_wsapi"
          :password "cd_wsapi"})
 
 (def clojuredocs-base "http://clojuredocs.org")
+
+(def clojure-default-version "1.2.0")
+
 
 (defn default [request]
   {:status 200
@@ -33,39 +36,74 @@
    :body *default-page*})
 
 
+(defn get-ns-id
+  "Given the name of a namespace, return it's id."
+  ([ns]
+     (with-query-results
+       rs
+       ["select id from namespaces where name = ?" ns]
+       (:id (first (doall rs)))))
+  ([ns version]
+     (with-query-results
+       rs
+       ["select id from namespaces where name = ? and version = ?" ns version]
+       (:id (first (doall rs))))))
+
+
 (defn get-id
   "Retrieve the id of a given namespace and method.
-  Must be called from within a transaction."
-  [ns name]
-  (when-let [id (with-query-results
-                  rs
-                  ["select id from functions where ns = ? and name = ?" ns name]
-                  (:id (first (doall rs))))]
-    id))
+  Must be called from within a transaction.
+
+  If a version is specified, retrieve that version's id,
+  otherwise return the default version id."
+  [ns name & [version]]
+  (let [ns-id (if version
+                (get-ns-id ns version)
+                (get-ns-id ns))
+        _ (println "ns-id:" ns-id)
+        id (with-query-results
+             rs
+             ["select id from functions where namespace_id = ? and name = ?" ns-id name]
+             (:id (first (doall rs))))]
+    (println "id:" id)
+    id) )
 
 
 (defn get-available-versions
-  "Given nothing, return all available versions clojuredocs knows about.
-
+  "Given nothing, return all available clojure.core versions clojuredocs knows about.
+  Given a namespace, return a list of versions for the namespace.
   Given a namespace and name, return a list of versions for the function."
   ([]
+     (get-available-versions "clojure.core"))
+  ([ns]
      (with-connection
        db
-       (with-query-results rs ["select distinct version from functions"]
+       (with-query-results rs ["select distinct version from flat_functions_view where ns = ?" ns]
          (remove nil? (map :version (doall rs))))))
   ([ns name]
      (with-connection
        db
-       (with-query-results rs ["select version from functions where ns = ? and name = ?" ns name]
+       (with-query-results rs ["select distinct version from flat_functions_view where ns = ? and name = ?" ns name]
          (remove nil? (map :version (doall rs)))))))
 
 
 (defn available-versions
-  []
-  (fn [r]
-    {:status 200
-     :headers {"Content-Type" "application/json"}
-     :body (encode-to-str (get-available-versions))}))
+  "Get all available versions for either clojure (no args), or a particular function"
+  ([]
+     (fn [r]
+       {:status 200
+        :headers {"Content-Type" "application/json"}
+        :body (encode-to-str (get-available-versions))}))
+  ([ns]
+     (fn [r]
+       {:status 200
+        :headers {"Content-Type" "application/json"}
+        :body (encode-to-str (get-available-versions ns))}))
+  ([ns name]
+     (fn [r]
+       {:status 200
+        :headers {"Content-Type" "application/json"}
+        :body (encode-to-str (get-available-versions ns name))})))
 
 
 (defn format-example
@@ -74,23 +112,29 @@
   (dissoc (into {} example) :id :function_id :user_id))
 
 
-(defn examples [ns name]
-  (fn [r]
-    {:status 200
-     :headers {"Content-Type" "application/json"}
-     :body (encode-to-str 
-             (with-connection db
-                              (transaction
-                                (when-let [id (get-id ns name)]
-                                  (when-let [examples (with-query-results
-                                                        rs
-                                                        ["select * from examples where function_id = ?" id]
-                                                        (doall rs))]
-                                    {:url (str clojuredocs-base "/v/" id)
-				     :examples (map format-example examples)})))))}))
+;; select * from flat_examples_view where ns = clojure.core and function = map [ and lib_version = 1.2.0 ]
+
+(defn examples
+  ([ns name]
+     (examples ns name nil))
+  ([ns name version]
+     (fn [r]
+       {:status 200
+        :headers {"Content-Type" "application/json"}
+        :body (encode-to-str
+               (with-connection db
+                 (transaction
+                  (when-let [examples (with-query-results
+                                        rs
+                                        (if version
+                                          ["select * from flat_examples_view where ns = ? and function = ? and lib_version = ?" ns name version]
+                                          ["select * from flat_examples_view where ns = ? and function = ?" ns name])
+                                        (doall rs))]
+                    ;; TODO: fix the url for versioning
+                    {:url (str clojuredocs-base "/v/" (:function_id (first examples)))
+                     :examples (map format-example examples)}))))})))
 
 
-; Doesn't do anything yet, but it might in the future.
 (defn format-search
   "Given a function result set, format the function for the API JSON output."
   [function]
@@ -116,9 +160,9 @@
   ([name]
    (search nil name))
   ([ns name]
-   (let [qv (if (nil? ns)
-              [(str "select id,name,ns from functions where name like '%" name "%'")]
-              [(str "select id,name,ns from functions where ns = ? and name like '%" name "%'") ns])]
+     (let [qv (if (nil? ns)
+              [(str "select id,name,ns from flat_functions_view where name like '%" name "%'")]
+              [(str "select id,name,ns from flat_functions_view where ns = ? and name like '%" name "%'") ns])]
      (perform-search qv))))
 
 
@@ -130,19 +174,22 @@
 
 (defn get-comments
   "Return the comments for a given namespace and method."
-  [ns name]
-  (fn [n]
-    {:status 200
-     :headers {"Content-Type" "application/json"}
-     :body (encode-to-str
-             (with-connection db
-                              (transaction
-                                (when-let [id (get-id ns name)]
-                                  (when-let [comments (with-query-results
-                                                      rs
-                                                      ["select * from comments where comments.commentable_id = ? " id]
-                                                      (doall rs))]
-                                    (map format-comment comments))))))}))
+  ([ns name]
+     (get-comments ns name nil))
+  ([ns name version]
+     (fn [n]
+       {:status 200
+        :headers {"Content-Type" "application/json"}
+        :body (encode-to-str
+               (with-connection db
+                 (transaction
+                  (when-let [comments (with-query-results
+                                        rs
+                                        (if version
+                                          ["select * from flat_comments_view where ns = ? and function = ? and version = ?" ns name version]
+                                          ["select * from flat_comments_view where ns = ? and function = ?" ns name])
+                                        (doall rs))]
+                    (map format-comment comments)))))})))
 
 
 (defn format-see-also-function
@@ -192,6 +239,8 @@
        ["comments" ns name] (get-comments ns name)
        ["see-also" ns name] (see-also ns name)
        ["versions"] (available-versions)
+       ["versions" ns] (available-versions ns)
+       ["versions" ns name] (available-versions ns name)
        [&] default)
        request)))
 
