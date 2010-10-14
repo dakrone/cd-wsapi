@@ -220,12 +220,11 @@
      :body (encode-to-str
              (with-connection db
                               (transaction
-                                (when-let [id (get-id ns name)]
-                                  (when-let [see-also-ids (with-query-results
-                                                            rs
-                                                            ["select to_id from see_alsos where from_id = ?" id]
-                                                            (doall rs))]
-                                    (map format-see-also see-also-ids))))))}))
+                               (when-let [see-also-ids (with-query-results
+                                                         rs
+                                                         ["select to_id from flat_see_alsos_view where ns = ? and function = ?" ns name]
+                                                         (doall rs))]
+                                 (map format-see-also see-also-ids)))))}))
 
 
 
