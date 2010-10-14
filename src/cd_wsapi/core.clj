@@ -27,46 +27,11 @@
 
 (def clojuredocs-base "http://clojuredocs.org")
 
-(def clojure-default-version "1.2.0")
-
 
 (defn default [request]
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body *default-page*})
-
-
-(defn get-ns-id
-  "Given the name of a namespace, return it's id."
-  ([ns]
-     (with-query-results
-       rs
-       ["select id from namespaces where name = ?" ns]
-       (:id (first (doall rs)))))
-  ([ns version]
-     (with-query-results
-       rs
-       ["select id from namespaces where name = ? and version = ?" ns version]
-       (:id (first (doall rs))))))
-
-
-(defn get-id
-  "Retrieve the id of a given namespace and method.
-  Must be called from within a transaction.
-
-  If a version is specified, retrieve that version's id,
-  otherwise return the default version id."
-  [ns name & [version]]
-  (let [ns-id (if version
-                (get-ns-id ns version)
-                (get-ns-id ns))
-        _ (println "ns-id:" ns-id)
-        id (with-query-results
-             rs
-             ["select id from functions where namespace_id = ? and name = ?" ns-id name]
-             (:id (first (doall rs))))]
-    (println "id:" id)
-    id) )
 
 
 (defn get-available-versions
