@@ -195,18 +195,20 @@
 
 (defn app-handler [channel request]
   (enqueue-and-close 
-    channel
-    ((app
-       ["examples" ns name] (examples ns name)
-       ["search" ns name] (search ns name)
-       ["search" name] (search name)
-       ["comments" ns name] (get-comments ns name)
-       ["see-also" ns name] (see-also ns name)
-       ["versions"] (available-versions)
-       ["versions" ns] (available-versions ns)
-       ["versions" ns name] (available-versions ns name)
-       [&] default)
-       request)))
+   channel
+   ((app
+     ["examples" ns name] (examples ns name)
+     ["examples" version ns name] (examples ns name version)
+     ["search" ns name] (search ns name)
+     ["search" name] (search name)
+     ["comments" ns name] (get-comments ns name)
+     ["comments" version ns name] (get-comments ns name version)
+     ["see-also" ns name] (see-also ns name)
+     ["versions"] (available-versions)
+     ["versions" ns] (available-versions ns)
+     ["versions" ns name] (available-versions ns name)
+     [&] default)
+    request)))
 
 
 (defn app-wrapper [channel request]

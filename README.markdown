@@ -13,6 +13,7 @@ Getting examples
 ----------------
 
     curl "http://localhost:8080/examples/clojure.core/map"
+    curl "http://localhost:8080/examples/1.2.0/clojure.core/map"
 
 Searching for a function
 ------------------------
@@ -24,6 +25,7 @@ Searching for comments on a function
 ------------------------------------
 
     curl "http://localhost:8080/comments/clojure.contrib.json/read-json"
+    curl "http://localhost:8080/comments/1.2.0/clojure.contrib.json/read-json"
 
 Getting the 'see-also' functions
 --------------------------------
@@ -34,6 +36,8 @@ Getting the available versions clojuredocs knows about
 ------------------------------------------------------
 
     curl "http://localhost:8080/versions"
+    curl "http://localhost:8080/versions/clojure.core"
+    curl "http://localhost:8080/versions/clojure.core/map"
 
 License
 -------
