@@ -161,7 +161,9 @@
   "Given a function, format it for json."
   [function]
   (let [id (:id function)]
-    (assoc (dissoc (into {} function) :id :doc :source :shortdoc) :url (str clojuredocs-base "/v/" id))))
+    (assoc (dissoc (into {} function) :id :doc :source :shortdoc
+                   :library :library_id)
+      :url (str clojuredocs-base "/v/" id))))
 
 
 (defn format-see-also
@@ -171,7 +173,7 @@
                    (transaction
                      (when-let [functions (with-query-results
                                             rs
-                                            ["select * from functions where id = ?" (:to_id id)]
+                                            ["select * from flat_functions_view where id = ?" (:to_id id)]
                                             (doall rs))]
                        (format-see-also-function (first functions)))))) ; should only be 1 function per id
 
