@@ -8,19 +8,19 @@
 (def *default-page* (slurp "resources/index.html"))
 
 ;;JSON Encoders
-(add-encoder 
-  java.util.Date
-  (fn [#^java.util.Date date #^java.io.Writer writer
-       #^String pad #^String current-indent
-       #^String start-token-indent #^Integer indent-size]
-    (.append writer (str start-token-indent \" date \"))))
+(add-encoder
+ java.util.Date
+ (fn [#^java.util.Date date #^java.io.Writer writer
+      #^String pad #^String current-indent
+      #^String start-token-indent #^Integer indent-size]
+   (.append writer (str start-token-indent \" date \"))))
 
 ;; Database
 
 (def db {:classname "com.mysql.jdbc.Driver"
          :subprotocol "mysql"
          :subname "//localhost:3306/clojuredocs_development?user=cd_wsapi&password=cd_wsapi"
-;         :subname "//localhost:3306/clojuredocs_production?user=cd_wsapi&password=cd_wsapi"
+                                        ;         :subname "//localhost:3306/clojuredocs_production?user=cd_wsapi&password=cd_wsapi"
          :create true
          :username "cd_wsapi"
          :password "cd_wsapi"})
@@ -114,21 +114,21 @@
     {:status 200
      :headers {"Content-Type" "application/json"}
      :body (encode-to-str
-             (with-connection db
-                              (transaction
-                                (when-let [functions (with-query-results rs queryvec (doall rs))]
-                                  (map format-search functions)))))}))
+            (with-connection db
+              (transaction
+               (when-let [functions (with-query-results rs queryvec (doall rs))]
+                 (map format-search functions)))))}))
 
 
 (defn search
   "Search for a method by name or namespace & name."
   ([name]
-   (search nil name))
+     (search nil name))
   ([ns name]
      (let [qv (if (nil? ns)
-              [(str "select id,name,ns from flat_functions_view where name like '%" name "%'")]
-              [(str "select id,name,ns from flat_functions_view where ns = ? and name like '%" name "%'") ns])]
-     (perform-search qv))))
+                [(str "select id,name,ns from flat_functions_view where name like '%" name "%'")]
+                [(str "select id,name,ns from flat_functions_view where ns = ? and name like '%" name "%'") ns])]
+       (perform-search qv))))
 
 
 (defn format-comment
@@ -145,16 +145,20 @@
      (fn [n]
        {:status 200
         :headers {"Content-Type" "application/json"}
-        :body (encode-to-str
-               (with-connection db
-                 (transaction
-                  (when-let [comments (with-query-results
-                                        rs
-                                        (if version
-                                          ["select * from flat_comments_view where ns = ? and function = ? and version = ?" ns name version]
-                                          ["select * from flat_comments_view where ns = ? and function = ?" ns name])
-                                        (doall rs))]
-                    (map format-comment comments)))))})))
+        :body (.replaceAll
+               (encode-to-str
+                (with-connection db
+                  (transaction
+                   (when-let
+                       [comments
+                        (with-query-results
+                          rs
+                          (if version
+                            ["select * from flat_comments_view where ns = ? and function = ? and version = ?" ns name version]
+                            ["select * from flat_comments_view where ns = ? and function = ?" ns name])
+                          (doall rs))]
+                     (map format-comment comments)))))
+               "\\\\r" "")})))
 
 
 (defn format-see-also-function
@@ -168,12 +172,12 @@
   "Given an id, format the function to see also."
   [id]
   (with-connection db
-                   (transaction
-                     (when-let [functions (with-query-results
-                                            rs
-                                            ["select * from functions where id = ?" (:to_id id)]
-                                            (doall rs))]
-                       (format-see-also-function (first functions)))))) ; should only be 1 function per id
+    (transaction
+     (when-let [functions (with-query-results
+                            rs
+                            ["select * from functions where id = ?" (:to_id id)]
+                            (doall rs))]
+       (format-see-also-function (first functions)))))) ; should only be 1 function per id
 
 
 (defn see-also
@@ -183,18 +187,18 @@
     {:status 200
      :headers {"Content-Type" "application/json"}
      :body (encode-to-str
-             (with-connection db
-                              (transaction
-                               (when-let [see-also-ids (with-query-results
-                                                         rs
-                                                         ["select to_id from flat_see_alsos_view where ns = ? and function = ?" ns name]
-                                                         (doall rs))]
-                                 (map format-see-also see-also-ids)))))}))
+            (with-connection db
+              (transaction
+               (when-let [see-also-ids (with-query-results
+                                         rs
+                                         ["select to_id from flat_see_alsos_view where ns = ? and function = ?" ns name]
+                                         (doall rs))]
+                 (map format-see-also see-also-ids)))))}))
 
 
 
 (defn app-handler [channel request]
-  (enqueue-and-close 
+  (enqueue-and-close
    channel
    ((app
      ["examples" ns name] (examples ns name)
@@ -219,8 +223,8 @@
 
 
          (defn restart-server []
-         (server)
-         (def server (start-http-server app-wrapper {:port *server-port*})))
+           (server)
+           (def server (start-http-server app-wrapper {:port *server-port*})))
 
          (restart-server))
 
